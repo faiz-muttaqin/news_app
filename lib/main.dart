@@ -1,4 +1,39 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'detail_page.dart';
+import 'article_webview.dart';
+
+// Container
+class Article {
+  final String author;
+  final String title;
+  final String description;
+  final String url;
+  final String urlToImage;
+  final String publishedAt;
+  final String content;
+
+  Article({
+    required this.author,
+    required this.title,
+    required this.description,
+    required this.url,
+    required this.urlToImage,
+    required this.publishedAt,
+    required this.content,
+  });
+
+  factory Article.fromJson(Map<String, dynamic> article) => Article(
+    author: article['author'],
+    title: article['title'],
+    description: article['description'],
+    url: article['url'],
+    urlToImage: article['urlToImage'],
+    publishedAt: article['publishedAt'],
+    content: article['content'],
+  );
+}
 
 void main() {
   runApp(const MyApp());
@@ -10,62 +45,76 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'News App',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
+        primarySwatch: Colors.blue,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      initialRoute: NewsListPage.routeName,
+      routes: {
+        NewsListPage.routeName: (context) => const NewsListPage(),
+        ArticleDetailPage.routeName: (context) => ArticleDetailPage(
+          article: ModalRoute.of(context)?.settings.arguments as Article,
+        ),
+        ArticleWebView.routeName: (context) => ArticleWebView(
+          url: ModalRoute.of(context)?.settings.arguments as String,
+        ),
+      },
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+class NewsListPage extends StatelessWidget {
+  static const routeName = '/article_list';
 
-
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      _counter++;
-    });
-  }
+  const NewsListPage({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(widget.title),
+        title: const Text('News App'),
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+      body: FutureBuilder<String>(
+        future:
+        DefaultAssetBundle.of(context).loadString('assets/articles.json'),
+        builder: (context, snapshot) {
+          print(snapshot);
+          final List<Article> articles = parseArticles(snapshot.data);
+          return ListView.builder(
+            itemCount: articles.length,
+            itemBuilder: (context, index) {
+              return _buildArticleItem(context, articles[index]);
+            },
+          );
+        },
       ),
     );
   }
+}
+List<Article> parseArticles(String? json) {
+  if (json == null) {
+    return [];
+  }
+
+  final List parsed = jsonDecode(json);
+  return parsed.map((json) => Article.fromJson(json)).toList();
+}
+
+Widget _buildArticleItem(BuildContext context, Article article) {
+  return ListTile(
+    contentPadding:
+    const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+    leading: Image.network(
+      article.urlToImage,
+      width: 100,
+      errorBuilder: (ctx, error, _) => const Center(child: Icon(Icons.error)),
+    ),
+    title: Text(article.title),
+    subtitle: Text(article.author),
+    onTap: () {
+      Navigator.pushNamed(context, ArticleDetailPage.routeName,
+          arguments: article);
+    },
+  );
 }
